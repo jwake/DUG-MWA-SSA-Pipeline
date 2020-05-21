@@ -9,6 +9,9 @@
 #SBATCH --mail-type FAIL,TIME_LIMIT,TIME_LIMIT_90
 #SBATCH --mail-user sirmcmissile47@gmail.com
 
+start=`date +%s`
+
+
 set -x
 
 {
@@ -22,5 +25,9 @@ for ((i=0;i<10;i++));
 do
     rm *${i}-dirty.fits
 done
+
+end=`date +%s`
+runtime=$((end-start))
+echo "the job run time ${runtime}"
 
 }

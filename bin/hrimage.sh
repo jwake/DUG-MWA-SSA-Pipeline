@@ -9,6 +9,8 @@
 #SBATCH --mail-type FAIL,TIME_LIMIT,TIME_LIMIT_90
 #SBATCH --mail-user sirmcmissile47@gmail.com
 
+start=`date +%s`
+
 source /group/mwa/software/module-reset.sh
 module use /group/mwa/software/modulefiles
 module load MWA_Tools/mwa-sci
@@ -55,6 +57,11 @@ rm -r ${obsnum}.ms
 rm ${obsnum}.metafits
 rm *.zip
 rm *gpubox*
+
+end=`date +%s`
+runtime=$((end-start))
+echo "the job run time ${runtime}"
+
 
 }
 

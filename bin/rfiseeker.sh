@@ -9,6 +9,8 @@
 #SBATCH --mail-type FAIL,TIME_LIMIT,TIME_LIMIT_90
 #SBATCH --mail-user sirmcmissile47@gmail.com
 
+start=`date +%s`
+
 set -x
 {
 
@@ -52,5 +54,10 @@ done
 for pid in ${pids[*]}; do
         wait ${pid}
 done
+
+end=`date +%s`
+runtime=$((end-start))
+echo "the job run time ${runtime}"
+
 
 }
