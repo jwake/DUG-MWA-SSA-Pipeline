@@ -53,7 +53,7 @@ do
     rm ${obsnum}-2m-*image.fits
     rm -r ${i}
 done
-rm -r ${obsnum}.ms
+
 rm ${obsnum}.metafits
 rm *.zip
 rm *gpubox*
