@@ -5,7 +5,7 @@
 #SBATCH --time=23:00:00
 #SBATCH --ntasks=28
 #SBATCH --mem=122GB
-#SBATCH -J hrimage
+#SBATCH -J lrimage
 #SBATCH --mail-type FAIL,TIME_LIMIT,TIME_LIMIT_90
 #SBATCH --mail-user sirmcmissile47@gmail.com
 
