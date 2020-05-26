@@ -65,12 +65,12 @@ output=`echo ${output} | sed "s/%A/${jobid1}/"`
 echo "Submitted cotter job as ${jobid1}"
 
 
-## run high res imaging ##
-script="${base}queue/hrimage_${obsnum}.sh"
-cat ${base}/bin/hrimage.sh | sed -e "s:OBSNUM:${obsnum}:g" \
+## run low res imaging ##
+script="${base}queue/lrimage_${obsnum}.sh"
+cat ${base}/bin/lrimage.sh | sed -e "s:OBSNUM:${obsnum}:g" \
                                  -e "s:BASE:${base}:g" > ${script}
-output="${base}queue/logs/hrimage_${obsnum}.o%A"
-error="${base}queue/logs/hrimage_${obsnum}.e%A"
+output="${base}queue/logs/lrimage_${obsnum}.o%A"
+error="${base}queue/logs/lrimage_${obsnum}.e%A"
 sub="sbatch --begin=now+15 --output=${output} --error=${error} --dependency=afterok:${jobid1} -A ${account}  ${script} -s ${timeSteps} -f ${channels}"
 jobid2=($(${sub}))
 jobid2=${jobid2[3]}
@@ -78,7 +78,7 @@ jobid2=${jobid2[3]}
 error=`echo ${error} | sed "s/%A/${jobid2}/"`
 output=`echo ${output} | sed "s/%A/${jobid2}/"`
 
-echo "Submitted hrimage job as ${jobid2}"
+echo "Submitted lrimage job as ${jobid2}"
 
 
 
@@ -97,19 +97,20 @@ output=`echo ${output} | sed "s/%A/${jobid3}/"`
 echo "Submitted RFISeeker job as ${jobid3}"
 
 
-## run clear files job ##
-script="${base}queue/clear_${obsnum}.sh"
-cat ${base}/bin/clear.sh | sed -e "s:OBSNUM:${obsnum}:g" \
+## run satSeach job ##
+script="${base}queue/satSearch_${obsnum}.sh"
+cat ${base}/bin/satSearch.sh | sed -e "s:OBSNUM:${obsnum}:g" \
                                  -e "s:BASE:${base}:g" > ${script}
-output="${base}queue/logs/clear_${obsnum}.o%A"
-error="${base}queue/logs/clear_${obsnum}.e%A"
+output="${base}queue/logs/satSearch_${obsnum}.o%A"
+error="${base}queue/logs/satSearch_${obsnum}.e%A"
 sub="sbatch --begin=now+15 --output=${output} --error=${error} -A ${account} --dependency=afterok:${jobid3} ${script}"
 jobid4=($(${sub}))
 jobid4=${jobid4[3]}
 ## rename the err/output files as we now know the jobid
 error=`echo ${error} | sed "s/%A/${jobid4}/"`
 output=`echo ${output} | sed "s/%A/${jobid4}/"`
-echo "Submitter clear job as ${jobid4}"
+
+echo "Submitter satSearch job as ${jobid4}"
 
 
 
