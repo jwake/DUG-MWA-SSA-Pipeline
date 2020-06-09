@@ -47,69 +47,35 @@ then
     usage
 fi
 
-base=/astro/mwasci/sprabu/satellites/DUG-MWA-SSA-Pipeline/
+base=/p8/Dugeo/teamhpc/justinw/curtin_icrar/DUG-MWA-SSA-Pipeline/
+queue=test,idle
+echo "Running:"
+echo "  rjs ${base}/bin/cotter.sh queue=${queue} name=cotter_${obsnum} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs"
+job1=$(rjs ${base}/bin/cotter.sh queue=${queue} name=cotter_${obsnum} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs 2>/dev/null)
 
-## run cotter ##
-script="${base}queue/cotter_${obsnum}.sh"
-cat ${base}/bin/cotter.sh | sed -e "s:OBSNUM:${obsnum}:g" \
-                                 -e "s:BASE:${base}:g" > ${script}
-output="${base}queue/logs/cotter_${obsnum}.o%A"
-error="${base}queue/logs/cotter_${obsnum}.e%A"
-sub="sbatch --begin=now+15 --output=${output} --error=${error} -A ${account} ${script} -c ${calibrationPath} "
-jobid1=($(${sub}))
-jobid1=${jobid1[3]}
-# rename the err/output files as we now know the jobid
-error=`echo ${error} | sed "s/%A/${jobid1}/"`
-output=`echo ${output} | sed "s/%A/${jobid1}/"`
+echo "Submitted cotter job as ${job1}"
 
-echo "Submitted cotter job as ${jobid1}"
+# wsclean has some multithreading, so run 8 processes per node
+pernode=8
+rounded=$((((${timeSteps}/${pernode})+1)*${pernode}))
+echo "Running:"
+echo "  rjs ${base}/bin/hrimage.sh queue=${queue} name=hrimage_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job1}"
+job2=$(rjs ${base}/bin/hrimage.sh queue=${queue} name=hrimage_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job1} 2>/dev/null)
 
+echo "Submitted hrimage job as ${job2}"
 
-## run high res imaging ##
-script="${base}queue/hrimage_${obsnum}.sh"
-cat ${base}/bin/hrimage.sh | sed -e "s:OBSNUM:${obsnum}:g" \
-                                 -e "s:BASE:${base}:g" > ${script}
-output="${base}queue/logs/hrimage_${obsnum}.o%A"
-error="${base}queue/logs/hrimage_${obsnum}.e%A"
-sub="sbatch --begin=now+15 --output=${output} --error=${error} --dependency=afterok:${jobid1} -A ${account}  ${script} -s ${timeSteps} -f ${channels}"
-jobid2=($(${sub}))
-jobid2=${jobid2[3]}
-# rename the err/output files as we now know the jobid
-error=`echo ${error} | sed "s/%A/${jobid2}/"`
-output=`echo ${output} | sed "s/%A/${jobid2}/"`
+# RFISeeker is single-threaded Python, so run 64 per node
+pernode=64
+rounded=$((((${timeSteps}/${pernode})+1)*${pernode}))
+echo "Running:"
+echo "  rjs ${base}/bin/rfiseeker.sh queue=${queue} name=rfiseeker_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job2}"
+job3=$(rjs ${base}/bin/rfiseeker.sh queue=${queue} name=rfiseeker_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job2} 2>/dev/null)
 
-echo "Submitted hrimage job as ${jobid2}"
+echo "Submitted RFISeeker job as ${job3}"
 
+job4=$(rjs ${base}/bin/clear.sh queue=${queue} name=clear_${obsnum} schema=base:${base}+obsnum:${obsnum} logdir=${base}/logs dep=${job3} 2>/dev/null)
 
-
-## run RFISeeker ##
-script="${base}queue/rfiseeker_${obsnum}.sh"
-cat ${base}/bin/rfiseeker.sh | sed -e "s:OBSNUM:${obsnum}:g" \
-                                 -e "s:BASE:${base}:g" > ${script}
-output="${base}queue/logs/rfiseeker_${obsnum}.o%A"
-error="${base}queue/logs/rfiseeker_${obsnum}.e%A"
-sub="sbatch --begin=now+15 --output=${output} --error=${error} -A ${account} --dependency=afterok:${jobid2} ${script} -s ${timeSteps} -f ${channels}"
-jobid3=($(${sub}))
-jobid3=${jobid3[3]}
-### rename the err/output files as we now know the jobid
-error=`echo ${error} | sed "s/%A/${jobid3}/"`
-output=`echo ${output} | sed "s/%A/${jobid3}/"`
-echo "Submitted RFISeeker job as ${jobid3}"
-
-
-## run clear files job ##
-script="${base}queue/clear_${obsnum}.sh"
-cat ${base}/bin/clear.sh | sed -e "s:OBSNUM:${obsnum}:g" \
-                                 -e "s:BASE:${base}:g" > ${script}
-output="${base}queue/logs/clear_${obsnum}.o%A"
-error="${base}queue/logs/clear_${obsnum}.e%A"
-sub="sbatch --begin=now+15 --output=${output} --error=${error} -A ${account} --dependency=afterok:${jobid3} ${script}"
-jobid4=($(${sub}))
-jobid4=${jobid4[3]}
-## rename the err/output files as we now know the jobid
-error=`echo ${error} | sed "s/%A/${jobid4}/"`
-output=`echo ${output} | sed "s/%A/${jobid4}/"`
-echo "Submitter clear job as ${jobid4}"
+echo "Submitted clear job as ${job4}"
 
 
 

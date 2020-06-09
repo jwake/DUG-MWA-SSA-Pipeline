@@ -1,60 +1,54 @@
 #! /bin/bash -l
-#SBATCH --export=NONE
-#SBATCH -M zeus
-#SBATCH -p workq
-#SBATCH --time=23:00:00
-#SBATCH --ntasks=28
-#SBATCH --mem=122GB
-#SBATCH -J hrimage
-#SBATCH --mail-type FAIL,TIME_LIMIT,TIME_LIMIT_90
-#SBATCH --mail-user sirmcmissile47@gmail.com
+#rj name=hrimage nodes=1 features=centos7,knl,fastio,localdisk runtime=1
 
-source /group/mwa/software/module-reset.sh
-module use /group/mwa/software/modulefiles
-module load MWA_Tools/mwa-sci
-module list
+TEMP=${TMPDIR}
 
 set -x
 {
 
-mem=120
 
-obsnum=OBSNUM
-base=BASE
-timeSteps=
-channels=
-while getopts 't:s:f:' OPTION
-do
-    case "$OPTION" in
-        s)
-            timeSteps=${OPTARG}
-            ;;
-        f)
-            channels=${OPTARG}
-            ;;
-    esac
-done
+mem=20
+module add gcc/9.2.0
+module add openmpi/4.0.3-mlnx
+source /p8/mcc_icrar/sw/env.sh
 
-timeSteps=$((timeSteps+1))
 datadir=${base}processing/${obsnum}
 cd ${datadir}
 
-for g in `seq 0 ${timeSteps}`;
+b=${ts}
+
+for g in `seq 1 ${pernode}`;
 do
-    i=$((g*1))
+{
+    i=$((b+g*1))
     j=$((i+1))
-    rm -r ${i}
-    mkdir ${i}
-    wsclean -name ${obsnum}-2m-${i} -size 1400 1400 -temp-dir ${i} \
-        -abs-mem ${mem} -interval ${i} ${j} -channels-out ${channels}\
-        -weight natural -scale 5amin ${obsnum}.ms
-    rm ${obsnum}-2m-*image.fits
-    rm -r ${i}
+    skip=$(((g-1)*${pernode}))
+    if [[ $i -gt ${maxTimeStep} ]]; then 
+        exit
+    fi
+    rm -rf ${TEMP}/${i}
+    mkdir -p ${TEMP}/${i}/tmp
+    cd ${TEMP}/${i}
+    WSCLEAN_OPTS="-j 8 -name ${obsnum}-2m-${i} -size 1400 1400 -temp-dir ${TEMP}/${i}/tmp -abs-mem ${mem} -interval ${i} ${j} -channels-out ${channels} -weight natural -scale 5amin -parallel-gridding 32 -parallel-reordering 32 ${datadir}/${obsnum}.ms"
+    echo "Running wsclean ${WSCLEAN_OPTS}"
+    KMP_HW_SUBSET=8c@${skip},4t OMP_WAIT_POLICY=passive KMP_NESTED=true OMP_NESTED=true KMP_AFFINITY=balanced wsclean ${WSCLEAN_OPTS}
+
+    rm ${obsnum}-2m-${i}*image.fits
+    mv ${obsnum}-2m-${i}*dirty.fits ${datadir}
+    
+    rm ${obsnum}-2m-${i}*tmp.fits
+    rm -r ${TEMP}/${i}
+}&
 done
-rm -r ${obsnum}.ms
-rm ${obsnum}.metafits
-rm *.zip
-rm *gpubox*
+
+for job in `jobs -p`
+do
+echo $job
+    wait $job || let "FAIL+=1"
+done
+
+# Note: cleanup is now done elsewhere since there will be other processes using the input/output folder
 
 }
+
 

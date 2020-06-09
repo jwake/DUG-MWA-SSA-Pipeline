@@ -1,21 +1,13 @@
-#! /bin/bash -l
-#SBATCH --export=NONE
-#SBATCH -M zeus  
-#SBATCH -p workq 
-#SBATCH --time=16:00:00
-#SBATCH --ntasks=28
-#SBATCH --mem=120GB
-#SBATCH -J RFISeeker
-#SBATCH --mail-type FAIL,TIME_LIMIT,TIME_LIMIT_90
-#SBATCH --mail-user sirmcmissile47@gmail.com
+#! /bin/bash 
+#rj name=RFISeeker nodes=1 features=centos7,knl,fastio runtime=1
 
 set -x
 {
 
-obsnum=OBSNUM
-base=BASE
-timeSteps=
-channels=
+mem=20
+module add gcc/9.2.0
+module add openmpi/4.0.3-mlnx
+source /p8/mcc_icrar/sw/env.sh
 
 while getopts 's:f:' OPTION
 do
@@ -33,24 +25,22 @@ datadir=${base}processing/${obsnum}
 cd ${datadir}
 
 # the below scipt parrallel spaws 28 python scipts on the requested 28 cores. 
-for q in $(seq ${timeSteps})
+for q in $(seq 1 ${pernode})
 do
-  while [[ $(jobs | wc -l) -ge 28 ]]
-  do
-    wait -n $(jobs -p)
-  done
-  RFISeeker --obs ${obsnum} --freqChannels ${channels} --seedSigma 6 --floodfillSigma 3 --timeStep ${q} --prefix 6Sigma3Floodfill --DSNRS=False &
-
+{
+  b=$((ts + q))
+  if [[ $b -gt ${maxTimeStep} ]]; then
+    exit
+  fi
+  echo "RFISeeker --obs ${obsnum} --freqChannels ${channels} --seedSigma 6 --floodfillSigma 3 --timeStep ${b} --prefix 6Sigma3Floodfill --DSNRS=False"
+  RFISeeker --obs ${obsnum} --freqChannels ${channels} --seedSigma 6 --floodfillSigma 3 --timeStep ${b} --prefix 6Sigma3Floodfill --DSNRS=False
+}&
 done
 
 i=0
 for job in `jobs -p`
 do
-        pids[${i}]=${job}
-        i=$((i+1))
-done
-for pid in ${pids[*]}; do
-        wait ${pid}
+  wait ${job}
 done
 
 }
