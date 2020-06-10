@@ -47,7 +47,7 @@ then
     usage
 fi
 
-base=/p8/Dugeo/teamhpc/justinw/curtin_icrar/DUG-MWA-SSA-Pipeline/
+base=/p8/mcc_icrar/MWA-SSA/code/DUG-MWA-SSA-Pipeline/
 queue=icrar,idle
 echo "Running:"
 echo "  rjs ${base}/bin/cotter.sh queue=${queue} name=cotter_${obsnum} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs"
