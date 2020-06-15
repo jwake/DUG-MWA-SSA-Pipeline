@@ -1,5 +1,5 @@
 #! /bin/bash -l
-#rj name=hrimage nodes=1 features=centos7,knl,fastio,localdisk runtime=1
+#rj name=hrimage nodes=1 features=centos7,knl,fastio runtime=1
 
 TEMP=${TMPDIR}
 
