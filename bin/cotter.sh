@@ -1,13 +1,14 @@
 #! /bin/bash -l
 #rj name=cotter nodes=1 features=knl,fastio runtime=1.5
 
-module add gcc/9.2.0
-module add openmpi/4.0.3-mlnx
-source /p8/mcc_icrar/sw/env.sh
 
 set -x 
 
 {
+
+module add openmpi/4.0.3-mlnx
+module add gcc/9.2.0
+source /p8/mcc_icrar/sw/env.sh
 
 while getopts 'c:' OPTION
 do
