@@ -4,7 +4,7 @@ set -x
 
 {
 
-datadir=${base}processing/${obsnum}
+datadir=${base}/processing/${obsnum}
 cd ${datadir}
 
 echo "Cleaning up output folder ${datadir}"

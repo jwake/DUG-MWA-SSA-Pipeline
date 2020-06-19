@@ -12,7 +12,7 @@ module add gcc/9.2.0
 module add openmpi/4.0.3-mlnx
 source /p8/mcc_icrar/sw/env.sh
 
-datadir=${base}processing/${obsnum}
+datadir=${base}/processing/${obsnum}
 cd ${datadir}
 
 b=${ts}
@@ -29,9 +29,9 @@ do
     rm -rf ${TEMP}/${i}
     mkdir -p ${TEMP}/${i}/tmp
     cd ${TEMP}/${i}
-    WSCLEAN_OPTS="-j 8 -name ${obsnum}-2m-${i} -size 1400 1400 -temp-dir ${TEMP}/${i}/tmp -abs-mem ${mem} -interval ${i} ${j} -channels-out ${channels} -weight natural -scale 5amin -parallel-gridding 32 -parallel-reordering 32 ${datadir}/${obsnum}.ms"
+    WSCLEAN_OPTS="-j 8 -no-clean -name ${obsnum}-2m-${i} -size 1400 1400 -temp-dir ${TEMP}/${i}/tmp -abs-mem ${mem} -interval ${i} ${j} -channels-out ${channels} -weight natural -scale 5amin -parallel-gridding 32 -parallel-reordering 32 ${datadir}/${obsnum}.ms"
     echo "Running wsclean ${WSCLEAN_OPTS}"
-    KMP_HW_SUBSET=8c@${skip},4t OMP_WAIT_POLICY=passive KMP_NESTED=true OMP_NESTED=true KMP_AFFINITY=balanced wsclean ${WSCLEAN_OPTS}
+    OMPI_PREFIX_ENV=/p8/mcc_icrar/000scratch KMP_HW_SUBSET="8c@${skip}" OMP_WAIT_POLICY=passive OMP_MAX_ACTIVE_LEVELS=3 KMP_AFFINITY=compact,granularity=core wsclean ${WSCLEAN_OPTS}
 
     rm ${obsnum}-2m-${i}*image.fits
     mv ${obsnum}-2m-${i}*dirty.fits ${datadir}

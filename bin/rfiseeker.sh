@@ -5,9 +5,6 @@ set -x
 {
 
 mem=20
-module add gcc/9.2.0
-module add openmpi/4.0.3-mlnx
-source /p8/mcc_icrar/sw/env.sh
 
 while getopts 's:f:' OPTION
 do
@@ -21,7 +18,12 @@ do
     esac
 done
 
-datadir=${base}processing/${obsnum}
+module add gcc/9.2.0
+module add openmpi/4.0.3-mlnx
+source /p8/mcc_icrar/sw/env.sh
+
+
+datadir=${base}/processing/${obsnum}
 cd ${datadir}
 
 # the below scipt parrallel spaws 28 python scipts on the requested 28 cores. 
