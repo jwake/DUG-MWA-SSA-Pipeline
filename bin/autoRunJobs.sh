@@ -70,83 +70,35 @@ then
 fi
 
 base=/p8/mcc_icrar/MWA-SSA/code/DUG-MWA-SSA-Pipeline/
-queue=icrar,idle
-echo "Running:"
-echo "  rjs ${base}/bin/cotter.sh queue=${queue} name=cotter_${obsnum} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs"
-job1=$(rjs ${base}/bin/cotter.sh queue=${queue} name=cotter_${obsnum} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs 2>/dev/null)
-
+queue=test
+dl_queue=bud3
 
 ## run asvo for target obs ##
-script="${base}queue/asvo_${obsnum}.sh"
-cat ${base}/bin/cotter.sh | sed -e "s:OBSNUM:${obsnum}:g" \
-                                 -e "s:BASE:${base}:g" > ${script}
-output="${base}queue/logs/asvo_${obsnum}.o%A"
-error="${base}queue/logs/asvo_${obsnum}.e%A"
-sub="sbatch --begin=now+15 --output=${output} --error=${error} -A ${account} ${script} -l ${target_asvo} "
-jobidasvo=($(${sub}))
-jobidasvo=${jobidasvo[3]}
-# rename the err/output files as we now know the jobid
-error=`echo ${error} | sed "s/%A/${jobidasvo}/"`
-output=`echo ${output} | sed "s/%A/${jobidasvo}/"`
-
+jobidasvo=$(rjs ${base}/bin/asvo.sh queue=${dl_queue} name=asvo_${obsnum} schema=base:${base}+obsnum=${obsnum} logdir=${base}/logs 2>/dev/null)
 echo "Submitted ASVO job for target obs as ${jobidasvo}"
-
 
 ## check if calibration sol exists
 if [[ -e "${calibrationPath}" ]]
 then
     echo "Calibration solution exists"
-
 else
     echo "Calibration solution does NOT exist"
 
     ## asvo for calibration
-    script="${base}queue/asvo_${calibration_obs}.sh"
-    cat ${base}/bin/cotter.sh | sed -e "s:OBSNUM:${calibration_obs}:g" \
-                                 -e "s:BASE:${base}:g" > ${script}
-    output="${base}queue/logs/asvo_${calibration_obs}.o%A"
-    error="${base}queue/logs/asvo_${calibration_obs}.e%A"
-    sub="sbatch --begin=now+15 --output=${output} --error=${error} --dependency=afterok:${jobidasvo} -A ${account} ${script} -l ${calibration_asvo} "
-    jobidasvo=($(${sub}))
-    jobidasvo=${jobidasvo[3]}
-    # rename the err/output files as we now know the jobid
-    error=`echo ${error} | sed "s/%A/${jobidasvo}/"`
-    output=`echo ${output} | sed "s/%A/${jobidasvo}/"`
-
+    jobidasvo=$(rjs ${base}/bin/calibrate.sh queue=${dl_queue} name=asvo_${calibration_obs} dep=${jobidasvo} schema=base:${base}+obsnum=${calibration_obs} logdir=${base}/logs 2>/dev/null)
     echo "Submitted ASVO job for calibration obs obs as ${jobidasvo}"
 
-
     ## calibration job for calibration
-    script="${base}queue/calibrate_${calibration_obs}.sh"
-    cat ${base}/bin/cotter.sh | sed -e "s:OBSNUM:${calibration_obs}:g" \
-                                 -e "s:BASE:${base}:g" > ${script}
-    output="${base}queue/logs/calibrate_${calibration_obs}.o%A"
-    error="${base}queue/logs/calibrate_${calibration_obs}.e%A"
-    sub="sbatch --begin=now+15 --output=${output} --error=${error} --dependency=afterok:${jobidasvo} -A ${account} ${script} -m ${calibration_model} "
-    jobidasvo=($(${sub}))
-    jobidasvo=${jobidasvo[3]}
-    # rename the err/output files as we now know the jobid
-    error=`echo ${error} | sed "s/%A/${jobidasvo}/"`
-    output=`echo ${output} | sed "s/%A/${jobidasvo}/"`
-
+    jobidasvo=$(rjs ${base}/bin/calibrate.sh queue=${queue} name=calibrate_${calibration_obs} dep=${jobidasvo} schema=base:${base}+obsnum:${calibration_obs} logdir=${base}/logs 2>/dev/null)
     echo "Submitted calibration job as ${jobidasvo}"
-
 fi
 
-
-
 ## run cotter ##
-script="${base}queue/cotter_${obsnum}.sh"
-cat ${base}/bin/cotter.sh | sed -e "s:OBSNUM:${obsnum}:g" \
-                                 -e "s:BASE:${base}:g" > ${script}
-output="${base}queue/logs/cotter_${obsnum}.o%A"
-error="${base}queue/logs/cotter_${obsnum}.e%A"
-sub="sbatch --begin=now+15 --output=${output} --error=${error} --dependency=afterok:${jobidasvo} -A ${account} ${script} -c ${calibrationPath} "
-jobid1=($(${sub}))
-jobid1=${jobid1[3]}
-# rename the err/output files as we now know the jobid
-error=`echo ${error} | sed "s/%A/${jobid1}/"`
-output=`echo ${output} | sed "s/%A/${jobid1}/"`
+echo "Running:"
+echo "  rjs ${base}/bin/cotter.sh queue=${queue} name=cotter_${obsnum} dep=${jobidasvo} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs"
+job1=$(rjs ${base}/bin/cotter.sh queue=${queue} name=cotter_${obsnum} dep=${jobidasvo} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs 2>/dev/null)
+
+echo "Submitted cotter job as ${job1}"
 
 # wsclean has some multithreading, so run 8 processes per node
 pernode=8
@@ -169,6 +121,3 @@ echo "Submitted RFISeeker job as ${job3}"
 job4=$(rjs ${base}/bin/clear.sh queue=${queue} name=clear_${obsnum} schema=base:${base}+obsnum:${obsnum} logdir=${base}/logs dep=${job3} 2>/dev/null)
 
 echo "Submitted clear job as ${job4}"
-
-
-

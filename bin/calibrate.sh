@@ -1,27 +1,13 @@
 #! /bin/bash -l
-#BATCH --export=NONE
-#SBATCH -M zeus
-#SBATCH -p workq
-#SBATCH --time=8:00:00
-#SBATCH --ntasks=28
-#SBATCH --mem=122GB
-#SBATCH -J calibrate
-#SBATCH --mail-type FAIL,TIME_LIMIT,TIME_LIMIT_90
-#SBATCH --mail-user sirmcmissile47@gmail.com
+#rj nodes=1 runtime=2 name=calibrate
 
 start=`date +%s`
 
-source /group/mwa/software/module-reset.sh
-module use /group/mwa/software/modulefiles
-module load MWA_Tools/mwa-sci
-module list
-module load python/3.6.3
+source /p8/mcc_icrar/sw/env.sh
 
 set -x 
 
 {
-obsnum=OBSNUM
-base=BASE
 calibrationModel=
 
 while getopts 'm:' OPTION
@@ -39,7 +25,7 @@ datadir=${base}processing/${obsnum}
 cd ${datadir}
 
 ## copy over the mwapy module
-cp -r /astro/mwasci/sprabu/satellites/mwapy .
+#cp -r /astro/mwasci/sprabu/satellites/mwapy .
 
 # flag baselines in DATA column
 aoflagger ${obsnum}.ms

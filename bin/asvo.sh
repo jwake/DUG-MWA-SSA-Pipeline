@@ -1,21 +1,10 @@
 #! /bin/bash -l
-#SBATCH --export=NONE
-#SBATCH -M zeus
-#SBATCH -p workq
-#SBATCH --time=5:00:00
-#SBATCH --ntasks=8
-#SBATCH --mem=20GB
-#SBATCH -J asvo
-#SBATCH --mail-type FAIL,TIME_LIMIT,TIME_LIMIT_90
-#SBATCH --mail-user sirmcmissile47@gmail.com
-
+#rj nodes=1 runtime=1
 
 set -x
 
 {
 
-obsnum=OBSNUM
-base=BASE
 link=
 
 while getopts 'l:' OPTION

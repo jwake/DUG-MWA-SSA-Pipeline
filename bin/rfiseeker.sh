@@ -8,7 +8,7 @@ set -x
 
 mem=20
 module add gcc/9.2.0
-module add openmpi/4.0.3-mlnx
+module add openmpi/4.0.x-mlnx-icc
 source /p8/mcc_icrar/sw/env.sh
 
 while getopts 's:f:' OPTION
