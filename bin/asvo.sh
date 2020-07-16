@@ -5,7 +5,7 @@ set -x
 
 {
 
-link=
+#link=
 
 while getopts 'l:' OPTION
 do

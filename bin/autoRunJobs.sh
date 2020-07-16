@@ -63,7 +63,7 @@ do
     esac
 done
 
-# if obsid is empty then just pring help
+# if obsid is empty then just print help
 if [[ -z ${obsnum} ]]
 then
     usage
@@ -73,9 +73,23 @@ base=/p8/mcc_icrar/MWA-SSA/code/DUG-MWA-SSA-Pipeline/
 queue=test
 dl_queue=bud3
 
-## run asvo for target obs ##
-jobidasvo=$(rjs ${base}/bin/asvo.sh queue=${dl_queue} name=asvo_${obsnum} schema=base:${base}+obsnum=${obsnum} logdir=${base}/logs 2>/dev/null)
-echo "Submitted ASVO job for target obs as ${jobidasvo}"
+jobidasvo=
+## run asvo for target obs, if it doesn't exist already ##
+if [[ ! -e "${base}processing/${obsnum}/${obsnum}.ms" ]]
+then
+    # Make sure there isn't a job already running
+    current=$(squeue -u `whoami` -h -o %j -n "asvo_${obsnum}" 2>/dev/null)
+    if [[ ! -z "${current}" ]]
+    then
+        echo "Skipping ASVO job for ${obsnum} as one is already running with job ID ${current}"
+        jobidasvo=${current}
+    else
+        jobidasvo=$(rjs ${base}/bin/asvo.sh queue=${dl_queue} name=asvo_${obsnum} schema=base:${base}+obsnum=${obsnum}+link:${target_asvo} logdir=${base}/logs 2>/dev/null)
+        echo "Submitted ASVO job for target obs as ${jobidasvo}"
+    fi
+else
+    echo "Skipped ASVO job for ${obsnum} as output path ${base}processing/${obsnum}/${obsnum}.ms exists"
+fi
 
 ## check if calibration sol exists
 if [[ -e "${calibrationPath}" ]]
@@ -84,12 +98,30 @@ then
 else
     echo "Calibration solution does NOT exist"
 
-    ## asvo for calibration
-    jobidasvo=$(rjs ${base}/bin/calibrate.sh queue=${dl_queue} name=asvo_${calibration_obs} dep=${jobidasvo} schema=base:${base}+obsnum=${calibration_obs} logdir=${base}/logs 2>/dev/null)
-    echo "Submitted ASVO job for calibration obs obs as ${jobidasvo}"
+    if [[ -z "${calibration_obs}" || -z "${calibration_model}" ]]
+    then
+        echo "Must specify a calibration observation and model if no calibration solution exists."
+        exit
+    fi
+
+    ## asvo for calibration, if necessary
+    if [[ ! -e "${base}processing/${calibration_obs}/${calibration_obs}.ms" ]]
+    then
+        current=$(squeue -u `whoami` -h -o %j -n "asvo_${calibration_obs}" 2>/dev/null)
+        if [[ ! -z "${current}" ]]
+        then
+            echo "Skipping ASVO job for calibration obs ${calibration_obs} as one is already running with job ID ${current}"
+            jobidasvo=${current}
+        else
+            jobidasvo=$(rjs ${base}/bin/calibrate.sh queue=${dl_queue} name=asvo_${calibration_obs} dep=${jobidasvo} schema=base:${base}+obsnum=${calibration_obs} logdir=${base}/logs 2>/dev/null)
+            echo "Submitted ASVO job for calibration obs obs as ${jobidasvo}"
+        fi
+    else
+        echo "Skipped ASVO job for calibration obs ${calibration_obs} as ${base}processing/${obsnum}/${obsnum}.ms exists"
+    fi
 
     ## calibration job for calibration
-    jobidasvo=$(rjs ${base}/bin/calibrate.sh queue=${queue} name=calibrate_${calibration_obs} dep=${jobidasvo} schema=base:${base}+obsnum:${calibration_obs} logdir=${base}/logs 2>/dev/null)
+    jobidasvo=$(rjs ${base}/bin/calibrate.sh queue=${queue} name=calibrate_${calibration_obs} dep=${jobidasvo} schema=base:${base}+obsnum:${calibration_obs}+calibrationModel=${calibration_model} logdir=${base}/logs 2>/dev/null)
     echo "Submitted calibration job as ${jobidasvo}"
 fi
 

@@ -8,7 +8,6 @@ source /p8/mcc_icrar/sw/env.sh
 set -x 
 
 {
-calibrationModel=
 
 while getopts 'm:' OPTION
 do
