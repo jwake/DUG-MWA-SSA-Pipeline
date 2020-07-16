@@ -1,5 +1,9 @@
 #! /bin/bash -l
 #rj name=clear runtime=1
+
+start=`date +%s`
+
+
 set -x
 
 {
@@ -13,5 +17,9 @@ rm -f ${obsnum}.metafits
 rm -f *.zip
 rm -f *gpubox*.fits
 rm -f *-dirty.fits
+
+end=`date +%s`
+runtime=$((end-start))
+echo "the job run time ${runtime}"
 
 }

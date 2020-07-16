@@ -3,6 +3,8 @@
 
 TEMP=${TMPDIR}
 
+start=`date +%s`
+
 set -x
 {
 
@@ -48,6 +50,11 @@ echo $job
 done
 
 # Note: cleanup is now done elsewhere since there will be other processes using the input/output folder
+
+end=`date +%s`
+runtime=$((end-start))
+echo "the job run time ${runtime}"
+
 
 }
 

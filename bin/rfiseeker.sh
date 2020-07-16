@@ -1,6 +1,8 @@
 #! /bin/bash 
 #rj name=RFISeeker nodes=1 features=centos7,knl,fastio runtime=1
 
+start=`date +%s`
+
 set -x
 {
 
@@ -42,5 +44,10 @@ for job in `jobs -p`
 do
   wait ${job}
 done
+
+end=`date +%s`
+runtime=$((end-start))
+echo "the job run time ${runtime}"
+
 
 }
