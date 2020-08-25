@@ -2,7 +2,7 @@
 
 usage()
 {
-echo "autoSubmitJobs.sh [-c calibration] [-o obsnum] [-a account] [-f channels] [-s timeSteps] [-t target wget] [-q calibration obs] [-u calibration wget] [-m calibration model]
+echo "autoSubmitJobs.sh [-c calibration] [-o obsnum] [-a account] [-f channels] [-s timeSteps] [-t target wget] [-q calibration obs] [-u calibration wget] [-m calibration model] [-k]
         -c calibration          : path to calibration solution
         -m calibration model    : the calibration model
         -a account              : pawsey Account to use
@@ -11,8 +11,27 @@ echo "autoSubmitJobs.sh [-c calibration] [-o obsnum] [-a account] [-f channels] 
         -f channels             : the number of channels in ms, default=768
         -s timeSteps            : the number of timeSteps in ms, default=56
         -t target wget          : the asvo wget link for target obs
-        -o obsnum               : the obsid" 1>&2;
+        -o obsnum               : the obsid
+        -k                      : skip cleanup" 1>&2;
 exit 1;
+}
+join_by() { local IFS="$1"; shift; echo "$*"; }
+
+rawurlencode() {
+  local string="${1}"
+  local strlen=${#string}
+  local encoded=""
+  local pos c o
+
+  for (( pos=0 ; pos<strlen ; pos++ )); do
+     c=${string:$pos:1}
+     case "$c" in
+        [-_.~a-zA-Z0-9] ) o="${c}" ;;
+        * )               printf -v o '%%%02x' "'$c"
+     esac
+     encoded+="${o}"
+  done
+  echo "${encoded}"
 }
 
 calibrationPath=
@@ -24,16 +43,16 @@ calibration_obs=
 calibration_asvo=
 calibration_model=
 target_asvo=
+skip_cleanup=0
 
-
-while getopts 'c:o:a:f:s:t:q:u:m:' OPTION
+while getopts 'c:o:a:f:s:t:q:u:m:k' OPTION
 do
     case "$OPTION" in
         m)
             calibration_model=${OPTARG}
             ;;
         u)
-            calibration_asvo=${OPTARG}
+            calibration_asvo=$(rawurlencode "${OPTARG}")
             ;;
         q)
             calibration_obs=${OPTARG}
@@ -54,9 +73,11 @@ do
             account=${OPTARG}
             ;;
         t)
-            target_asvo=${OPTARG}
+            target_asvo=$(rawurlencode "${OPTARG}")
             ;;
-        
+        k)
+            skip_cleanup=1
+            ;;
         ? | : | h)
             usage
             ;;
@@ -69,13 +90,21 @@ then
     usage
 fi
 
-base=/p8/mcc_icrar/MWA-SSA/code/DUG-MWA-SSA-Pipeline/
-queue=test
-dl_queue=bud3
+base=/p8/mcc_icrar/MWA-SSA/code/DUG-MWA-SSA-Pipeline
+queue=icrar
+dl_queue=icrar
 
-jobidasvo=
+rm -f ${base}/bin/*.schema
+
+if [[ ! -z "${calibration_obs}" ]]; then
+    calibrationPath=${calibrationPath}/${calibration_obs}.bin
+fi
+
+jobid_asvo_tgt=
+jobid_cal=
+dep=
 ## run asvo for target obs, if it doesn't exist already ##
-if [[ ! -e "${base}processing/${obsnum}/${obsnum}.ms" ]]
+if [[ ! -e "${base}/processing/${obsnum}/${obsnum}.ms" && $(compgen -G "${base}/processing/${obsnum}/*gpubox*" > /dev/null) ]]
 then
     # Make sure there isn't a job already running
     current=$(squeue -u `whoami` -h -o %j -n "asvo_${obsnum}" 2>/dev/null)
@@ -83,12 +112,19 @@ then
     then
         echo "Skipping ASVO job for ${obsnum} as one is already running with job ID ${current}"
         jobidasvo=${current}
+        dep="dep=${jobidasvo}"
     else
-        jobidasvo=$(rjs ${base}/bin/asvo.sh queue=${dl_queue} name=asvo_${obsnum} schema=base:${base}+obsnum=${obsnum}+link:${target_asvo} logdir=${base}/logs 2>/dev/null)
-        echo "Submitted ASVO job for target obs as ${jobidasvo}"
+        echo "Running: "
+        
+        cp ${base}/bin/asvo.sh ${base}/bin/asvo_target.sh
+        echo "  rjs ${base}/bin/asvo_target.sh queue=${dl_queue} name=asvo_tgt_${obsnum} schema=base:${base}+obsnum:${obsnum}+link:${target_asvo} logdir=${base}/logs"
+
+        jobid_asvo_tgt=$(rjs ${base}/bin/asvo_target.sh queue=${dl_queue} name=asvo_tgt_${obsnum} schema=base:${base}+obsnum:${obsnum}+link:${target_asvo} logdir=${base}/logs 2>/dev/null)
+        dep="dep=${jobid_asvo_tgt}"
+        echo "Submitted ASVO job for target obs as ${jobid_asvo_tgt}"
     fi
 else
-    echo "Skipped ASVO job for ${obsnum} as output path ${base}processing/${obsnum}/${obsnum}.ms exists"
+    echo "Skipped ASVO job for ${obsnum} as the data already exists"
 fi
 
 ## check if calibration sol exists
@@ -105,30 +141,43 @@ else
     fi
 
     ## asvo for calibration, if necessary
-    if [[ ! -e "${base}processing/${calibration_obs}/${calibration_obs}.ms" ]]
+    if [[ ! -e "${base}/processing/${calibration_obs}/${calibration_obs}.ms" ]]
     then
         current=$(squeue -u `whoami` -h -o %j -n "asvo_${calibration_obs}" 2>/dev/null)
         if [[ ! -z "${current}" ]]
         then
             echo "Skipping ASVO job for calibration obs ${calibration_obs} as one is already running with job ID ${current}"
             jobidasvo=${current}
+            dep="dep=${jobidasvo}"
+        elif [[ $(compgen -G "${base}/processing/${calibration_obs}/*gpubox*" > /dev/null) ]]
+        then
+            echo "Skipping ASVO job for calibration obs ${calibration_obs} as the GPUBOX FITS files already exist"
         else
-            jobidasvo=$(rjs ${base}/bin/calibrate.sh queue=${dl_queue} name=asvo_${calibration_obs} dep=${jobidasvo} schema=base:${base}+obsnum=${calibration_obs} logdir=${base}/logs 2>/dev/null)
-            echo "Submitted ASVO job for calibration obs obs as ${jobidasvo}"
+            echo "Running: "
+            echo "  rjs ${base}/bin/asvo_calibration.sh queue=${dl_queue} name=asvo_cal_${calibration_obs} schema=base:${base}+obsnum:${obsnum}+link:${calibration_asvo} logdir=${base}/logs"
+            cp ${base}/bin/asvo.sh ${base}/bin/asvo_calibration.sh
+            jobidasvo=$(rjs ${base}/bin/asvo_calibration.sh queue=${dl_queue} name=asvo_cal_${calibration_obs} schema=base:${base}+obsnum:${calibration_obs}+link:${calibration_asvo} logdir=${base}/logs 2>/dev/null)
+            dep="dep=${jobidasvo}"
+            echo "Submitted ASVO job for calibration obs ${calibration_obs} as ${jobidasvo}"
         fi
+
     else
         echo "Skipped ASVO job for calibration obs ${calibration_obs} as ${base}processing/${obsnum}/${obsnum}.ms exists"
     fi
 
     ## calibration job for calibration
-    jobidasvo=$(rjs ${base}/bin/calibrate.sh queue=${queue} name=calibrate_${calibration_obs} dep=${jobidasvo} schema=base:${base}+obsnum:${calibration_obs}+calibrationModel=${calibration_model} logdir=${base}/logs 2>/dev/null)
-    echo "Submitted calibration job as ${jobidasvo}"
+    echo "Running:"
+    echo "  rjs ${base}/bin/calibrate.sh queue=${queue} name=calibrate_${calibration_obs} $dep schema=base:${base}+obsnum:${calibration_obs}+calibrationModel:${calibration_model} logdir=${base}/logs"
+    jobid_cal=$(rjs ${base}/bin/calibrate.sh queue=${queue} name=calibrate_${calibration_obs} $dep schema=base:${base}+obsnum:${calibration_obs}+calibrationModel:${calibration_model} logdir=${base}/logs 2>/dev/null)
+    echo "Submitted calibration job as ${jobid_cal}"
 fi
+
+dep="dep=$(join_by , ${jobid_asvo_tgt} ${jobid_cal})"
 
 ## run cotter ##
 echo "Running:"
-echo "  rjs ${base}/bin/cotter.sh queue=${queue} name=cotter_${obsnum} dep=${jobidasvo} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs"
-job1=$(rjs ${base}/bin/cotter.sh queue=${queue} name=cotter_${obsnum} dep=${jobidasvo} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs 2>/dev/null)
+echo "  rjs ${base}/bin/cotter.sh queue=${queue} name=cotter_${obsnum} ${dep} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs"
+job1=$(rjs ${base}/bin/cotter.sh queue=${queue} name=cotter_${obsnum} ${dep} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs 2>/dev/null)
 
 echo "Submitted cotter job as ${job1}"
 
@@ -137,7 +186,7 @@ pernode=8
 rounded=$((((${timeSteps}/${pernode})+1)*${pernode}))
 echo "Running:"
 echo "  rjs ${base}/bin/hrimage.sh queue=${queue} name=hrimage_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job1}"
-job2=$(${RJS} ${base}/bin/hrimage.sh queue=${queue} name=hrimage_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job1} 2>/dev/null)
+job2=$(rjs ${base}/bin/hrimage.sh queue=${queue} name=hrimage_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job1} 2>/dev/null)
 
 echo "Submitted hrimage job as ${job2}"
 
@@ -146,10 +195,12 @@ pernode=64
 rounded=$((((${timeSteps}/${pernode})+1)*${pernode}))
 echo "Running:"
 echo "  rjs ${base}/bin/rfiseeker.sh queue=${queue} name=rfiseeker_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job2}"
-job3=$(${RJS} ${base}/bin/rfiseeker.sh queue=${queue} name=rfiseeker_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job2} 2>/dev/null)
+job3=$(rjs ${base}/bin/rfiseeker.sh queue=${queue} name=rfiseeker_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job2} 2>/dev/null)
 
 echo "Submitted RFISeeker job as ${job3}"
 
-job4=$(${RJS} ${base}/bin/clear.sh queue=${queue} name=clear_${obsnum} schema=base:${base}+obsnum:${obsnum} logdir=${base}/logs dep=${job3} 2>/dev/null)
+if [[ ${skip_cleanup} -eq 0 ]]; then
+    job4=$(rjs ${base}/bin/clear.sh queue=${queue} name=clear_${obsnum} schema=base:${base}+obsnum:${obsnum} logdir=${base}/logs dep=${job3} 2>/dev/null)
 
-echo "Submitted clear job as ${job4}"
+    echo "Submitted clear job as ${job4}"
+fi

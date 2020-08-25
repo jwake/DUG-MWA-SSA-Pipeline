@@ -18,15 +18,16 @@ do
     esac
 done
 
+calibrationModel=$(echo ${calibrationModel} | sed -E "s/=//g")
+datadir=${base}/processing/${obsnum}
 
-datadir=${base}processing/${obsnum}
-
+echo "calibrating for model ${calibrationModel}"
 cd ${datadir}
 
 ## copy over the mwapy module
 #cp -r /astro/mwasci/sprabu/satellites/mwapy .
 SCRIPT_PATH=/p8/mcc_icrar/sw/bin
-MODEL_PATH=../model
+MODEL_PATH=${base}/model
 
 # flag baselines in DATA column
 aoflagger ${obsnum}.ms
@@ -38,7 +39,7 @@ python ${SCRIPT_PATH}/tileFlagger.py --obs ${obsnum} --data_col DATA
 python ${SCRIPT_PATH}/freqFlag.py --obs ${obsnum} --col DATA
 
 # round 1 calibration using source model
-calibrate -absmem 120 -m ${MODEL_PATH}/model-${calibrationModel}*withalpha.txt -minuv 150 ${obsnum}.ms round1_sol.bin
+calibrate -absmem 120 -j 64 -m ${MODEL_PATH}/model-${calibrationModel}*withalpha.txt -minuv 150 ${obsnum}.ms round1_sol.bin
 
 # apply round 1 solution to measurement set
 applysolutions ${obsnum}.ms round1_sol.bin
@@ -50,7 +51,7 @@ aoflagger ${obsnum}.ms
 python ${SCRIPT_PATH}/freqFlag.py --obs ${obsnum} --col CORRECTED_DATA
 
 # calibrate with the new flags and model
-calibrate -absmem 120 -m ${MODEL_PATH}/model-${calibrationModel}*withalpha.txt -minuv 150 ${obsnum}.ms round2_sol.bin
+calibrate -absmem 120 -j 64 -m ${MODEL_PATH}/model-${calibrationModel}*withalpha.txt -minuv 150 ${obsnum}.ms round2_sol.bin
 
 ## interpolate calibration solution for flagged freq
 python ${SCRIPT_PATH}/solInterpolate.py --inputFile round2_sol.bin --obs ${obsnum}
