@@ -104,7 +104,7 @@ jobid_asvo_tgt=
 jobid_cal=
 dep=
 ## run asvo for target obs, if it doesn't exist already ##
-if [[ ! -e "${base}/processing/${obsnum}/${obsnum}.ms" && $(compgen -G "${base}/processing/${obsnum}/*gpubox*" > /dev/null) ]]
+if [[ ! -e "${base}/processing/${obsnum}/${obsnum}.ms" && ! $(compgen -G "${base}/processing/${obsnum}/*gpubox*" > /dev/null) ]]
 then
     # Make sure there isn't a job already running
     current=$(squeue -u `whoami` -h -o %j -n "asvo_${obsnum}" 2>/dev/null)
