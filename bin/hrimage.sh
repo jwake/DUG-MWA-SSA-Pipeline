@@ -2,7 +2,7 @@
 #rj name=hrimage nodes=1 features=centos7,knl,fastio runtime=1
 
 TEMP=${TMPDIR}
-
+FAIL=0
 start=`date +%s`
 
 set -x
@@ -15,6 +15,7 @@ module add openmpi/4.0.x-mlnx-icc
 source /p8/mcc_icrar/sw/env.sh
 
 datadir=${base}/processing/${obsnum}
+set -e
 cd ${datadir}
 
 b=${ts}
@@ -35,12 +36,13 @@ do
     echo "Running wsclean ${WSCLEAN_OPTS}"
     set -e
     OMPI_PREFIX_ENV=/p8/mcc_icrar/000scratch KMP_HW_SUBSET="8c@${skip}" OMP_WAIT_POLICY=passive OMP_MAX_ACTIVE_LEVELS=3 KMP_AFFINITY=compact,granularity=core wsclean ${WSCLEAN_OPTS}
-
-    rm ${obsnum}-2m-${i}*image.fits
+    
     mv ${obsnum}-2m-${i}*dirty.fits ${datadir}
     
-    rm ${obsnum}-2m-${i}*tmp.fits
-    rm -r ${TEMP}/${i}
+    rm -f ${obsnum}-2m-${i}*image.fits
+    
+    rm -f ${obsnum}-2m-${i}*tmp.fits
+    rm -rf ${TEMP}/${i}
 }&
 done
 
@@ -58,5 +60,6 @@ echo "the job run time ${runtime}"
 
 
 }
+exit $FAIL
 
 

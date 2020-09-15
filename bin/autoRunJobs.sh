@@ -80,6 +80,7 @@ do
             ;;
         p)
             skip_result_copy=1
+            ;;
         k)
             skip_cleanup=1
             ;;
