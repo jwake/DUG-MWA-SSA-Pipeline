@@ -44,7 +44,7 @@ fi
 
 #rm *.zip
 set -e
-wget -nv -O ${obsnum}_ms.zip --no-check-certificate "${link}"
+wget -t 3 -nv -O ${obsnum}_ms.zip --no-check-certificate "${link}"
 
 
 if [[ -e "${outfile}" ]]
