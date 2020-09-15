@@ -22,7 +22,7 @@ datadir=${base}/processing
 
 
 cd ${datadir}
-rm -r ${obsnum}
+rm -rf ${obsnum}
 mkdir -p ${obsnum}
 cd  ${obsnum}
 
@@ -43,6 +43,7 @@ fi
 
 
 #rm *.zip
+set -e
 wget -nv -O ${obsnum}_ms.zip --no-check-certificate "${link}"
 
 
@@ -50,4 +51,7 @@ if [[ -e "${outfile}" ]]
 then
     unzip -n ${outfile}
     rm ${outfile}
+else
+    echo "Failed to download ${outfile}!"
+    exit 1
 fi

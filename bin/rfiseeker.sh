@@ -35,6 +35,7 @@ cd ${datadir}
 for q in $(seq 1 ${pernode})
 do
 {
+  set -e
   b=$((ts + q))
   if [[ $b -gt ${maxTimeStep} ]]; then
     exit
@@ -49,6 +50,14 @@ for job in `jobs -p`
 do
   wait ${job}
 done
+
+### combine data and make it into a vo table
+combinedMeasurements.py --t1 1 --t2 55 --obs ${obsnum} --prefix 6Sigma3Floodfill --hpc dug
+
+if [[ "${skip_result_copy}" != "1" ]]; then
+  ## copy the data over to storage
+  scp ${obsnum}-dug-measurements.fits zeus:'/group/mwasci/sprabu/rfiseekerLog'
+fi
 
 end=`date +%s`
 runtime=$((end-start))

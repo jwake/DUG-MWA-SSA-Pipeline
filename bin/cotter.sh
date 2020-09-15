@@ -25,7 +25,7 @@ source /p8/mcc_icrar/sw/env.sh
 datadir=${base}/processing/${obsnum}
 
 cd ${datadir}
-
+set -e
 cotter -j 256 -norfi -initflag 2 -timeres 2 -freqres 40 *gpubox* -absmem 60 -edgewidth 118 -m ${obsnum}.metafits -o ${obsnum}.ms
 
 applysolutions ${obsnum}.ms ${calibrationSolution}
