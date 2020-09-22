@@ -97,6 +97,8 @@ then
 fi
 
 base=/p8/mcc_icrar/MWA-SSA/code/DUG-MWA-SSA-Pipeline
+mkdir -p ${base}/logs
+mkdir -p ${base}/jobs
 echo $* >> ${base}/logs/runs.log
 queue=icrar
 dl_queue=icrar
