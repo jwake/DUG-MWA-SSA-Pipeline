@@ -17,8 +17,6 @@ rm -f ${obsnum}.metafits
 rm -f *.zip
 rm -f *gpubox*.fits
 rm -f *-dirty.fits
-rm -f ${base}/bin/asvo_target.sh ${base}/bin/asvo_calibration.sh ${base}/bin/cotter_calibration.sh
-rm -f ${base}/bin/*.schema
 end=`date +%s`
 runtime=$((end-start))
 echo "the job run time ${runtime}"

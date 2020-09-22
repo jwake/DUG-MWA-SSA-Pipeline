@@ -214,7 +214,7 @@ job3=$(${RJS} ${base}/jobs/rfiseeker_${obsnum}.sh queue=${queue} name=rfiseeker_
 echo "Submitted RFISeeker job as ${job3}"
 
 cp ${base}/bin/combine_copy_results.sh ${base}/jobs/combine_copy_results_${obsnum}.sh
-job4=$(${RJS} ${base}/jobs/combine_copy_results_${obsnum}.sh queue=${queue} name=copy_results_${obsnum} schema=base:${base}+obsnum:${obsnum}+skip_result_copy:${skip_result_copy} logdir=${base}/logs dep=${job3} 2>/dev/null)
+job4=$(${RJS} ${base}/jobs/combine_copy_results_${obsnum}.sh queue=${queue} name=combine_copy_results_${obsnum} schema=base:${base}+obsnum:${obsnum}+skip_result_copy:${skip_result_copy} logdir=${base}/logs dep=${job3} 2>/dev/null)
 echo "Submitted results combine + copy job as ${job4}"
 
 if [[ ${skip_cleanup} -eq 0 ]]; then
