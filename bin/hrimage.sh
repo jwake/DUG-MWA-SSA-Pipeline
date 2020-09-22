@@ -11,7 +11,7 @@ set -x
 
 mem=20
 module add gcc/9.2.0
-module add openmpi/4.0.x-mlnx-icc
+module add openmpi/4.0.5-mlnx-icc
 source /p8/mcc_icrar/sw/env.sh
 
 datadir=${base}/processing/${obsnum}
@@ -23,10 +23,10 @@ b=${ts}
 for g in `seq 1 ${pernode}`;
 do
 {
-    i=$((b+g*1))
-    j=$((i+1))
+    j=$((b+g*1))
+    i=$((j-1))
     skip=$(((g-1)*${pernode}))
-    if [[ $i -gt ${maxTimeStep} ]]; then 
+    if [[ $i -gt $((1+${maxTimeStep})) ]]; then 
         exit
     fi
     rm -rf ${TEMP}/${i}

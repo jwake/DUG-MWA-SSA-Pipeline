@@ -18,7 +18,7 @@ do
     esac
 done
 
-module add openmpi/4.0.3-mlnx
+module add openmpi/4.0.5-mlnx
 module add gcc/9.2.0
 source /p8/mcc_icrar/sw/env.sh
 

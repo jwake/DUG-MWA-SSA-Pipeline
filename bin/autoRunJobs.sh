@@ -97,6 +97,7 @@ then
 fi
 
 base=/p8/mcc_icrar/MWA-SSA/code/DUG-MWA-SSA-Pipeline
+echo $* >> ${base}/logs/runs.log
 queue=icrar
 dl_queue=icrar
 
@@ -191,7 +192,7 @@ echo "Submitted cotter job as ${job1}"
 
 # wsclean has some multithreading, so run 8 processes per node
 pernode=8
-rounded=$((((${timeSteps}/${pernode})+1)*${pernode}))
+rounded=$(echo $((${timesteps}+1)) | awk '{print$0+(n-$0%n)%n}' n=${pernode})
 echo "Running:"
 cp ${base}/bin/hrimage.sh ${base}/jobs/hrimage_${obsnum}.sh
 echo "  ${RJS} ${base}/jobs/hrimage_${obsnum}.sh queue=${queue} name=hrimage_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job1}"
@@ -202,7 +203,7 @@ echo "Submitted hrimage job as ${job2}"
 
 # RFISeeker is single-threaded Python, so run 64 per node
 pernode=64
-rounded=$((((${timeSteps}/${pernode})+1)*${pernode}))
+rounded=$(echo ${timesteps} | awk '{print$0+(n-$0%n)%n}' n=${pernode})
 echo "Running:"
 cp ${base}/bin/rfiseeker.sh ${base}/jobs/rfiseeker_${obsnum}.sh
 echo "  ${RJS} ${base}/jobs/rfiseeker_${obsnum}.sh queue=${queue} name=rfiseeker_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps}+skip_result:${skip_result_copy} logdir=${base}/logs dep=${job2}"
@@ -210,10 +211,14 @@ job3=$(${RJS} ${base}/jobs/rfiseeker_${obsnum}.sh queue=${queue} name=rfiseeker_
 
 echo "Submitted RFISeeker job as ${job3}"
 
-if [[ ${skip_cleanup} -eq 0 ]]; then
-    cp ${base}/bin/clear.sh ${base}/bin/clear_${obsnum}.sh
-    job4=$(${RJS} ${base}/bin/clear_${obsnum}.sh queue=${queue} name=clear_${obsnum} schema=base:${base}+obsnum:${obsnum} logdir=${base}/logs dep=${job3} 2>/dev/null)
+cp ${base}/bin/combine_copy_results.sh ${base}/jobs/combine_copy_results_${obsnum}.sh
+job4=$(${RJS} ${base}/jobs/combine_copy_results_${obsnum}.sh queue=${queue} name=copy_results_${obsnum} schema=base:${base}+obsnum:${obsnum}+skip_result_copy:${skip_result_copy} logdir=${base}/logs dep=${job3} 2>/dev/null)
+echo "Submitted results combine + copy job as ${job4}"
 
-    echo "Submitted clear job as ${job4}"
+if [[ ${skip_cleanup} -eq 0 ]]; then
+    cp ${base}/bin/clear.sh ${base}/jobs/clear_${obsnum}.sh
+    job5=$(${RJS} ${base}/jobs/clear_${obsnum}.sh queue=${queue} name=clear_${obsnum} schema=base:${base}+obsnum:${obsnum} logdir=${base}/logs dep=${job4} 2>/dev/null)
+
+    echo "Submitted clear job as ${job5}"
 fi
 

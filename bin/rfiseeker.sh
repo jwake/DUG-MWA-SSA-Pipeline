@@ -2,13 +2,13 @@
 #rj name=RFISeeker nodes=1 features=centos7,knl,fastio runtime=1
 
 start=`date +%s`
-
+FAIL=0
 set -x
 {
 
 mem=20
 module add gcc/9.2.0
-module add openmpi/4.0.x-mlnx-icc
+module add openmpi/4.0.5-mlnx-icc
 source /p8/mcc_icrar/sw/env.sh
 
 while getopts 's:f:' OPTION
@@ -26,7 +26,7 @@ done
 module add gcc/9.2.0
 module add openmpi/4.0.3-mlnx
 source /p8/mcc_icrar/sw/env.sh
-
+set -e
 
 datadir=${base}/processing/${obsnum}
 cd ${datadir}
@@ -41,22 +41,18 @@ do
     exit
   fi
   echo "RFISeeker --obs ${obsnum} --freqChannels ${channels} --seedSigma 6 --floodfillSigma 3 --timeStep ${b} --prefix 6Sigma3Floodfill --DSNRS=False"
-  RFISeeker --obs ${obsnum} --freqChannels ${channels} --seedSigma 6 --floodfillSigma 3 --timeStep ${b} --prefix 6Sigma3Floodfill --DSNRS=False
+  RFISeeker --obs ${obsnum} --freqChannels ${channels} --seedSigma 6 --floodfillSigma 3 --timeStep ${b} --prefix 6Sigma3Floodfill --DSNRS=False --imgSize 1400
 }&
 done
 
 i=0
 for job in `jobs -p`
 do
-  wait ${job}
+  wait ${job} || let "FAIL+=1"
 done
 
-### combine data and make it into a vo table
-combinedMeasurements.py --t1 1 --t2 55 --obs ${obsnum} --prefix 6Sigma3Floodfill --hpc dug
-
-if [[ "${skip_result_copy}" != "1" ]]; then
-  ## copy the data over to storage
-  scp ${obsnum}-dug-measurements.fits zeus:'/group/mwasci/sprabu/rfiseekerLog'
+if [[ ${FAIL} -gt 0 ]]; then
+  echo "${FAIL} RFISeeker jobs failed"
 fi
 
 end=`date +%s`
