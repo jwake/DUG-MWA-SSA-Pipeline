@@ -1,5 +1,6 @@
 #! /bin/bash -l
 #rj nodes=1 runtime=1
+export http_proxy='proxy.per.dug.com:3128'
 
 set -x
 function urldecode() { : "${*//+/ }"; echo -e "${_//%/\\x}"; }
