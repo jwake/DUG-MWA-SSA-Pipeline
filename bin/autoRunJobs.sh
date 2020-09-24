@@ -194,7 +194,7 @@ echo "Submitted cotter job as ${job1}"
 
 # wsclean has some multithreading, so run 8 processes per node
 pernode=8
-rounded=$(echo $((${timesteps}+1)) | awk '{print$0+(n-$0%n)%n}' n=${pernode})
+rounded=$(echo $((${timeSteps}+1)) | awk '{print$0+(n-$0%n)%n}' n=${pernode})
 echo "Running:"
 cp ${base}/bin/hrimage.sh ${base}/jobs/hrimage_${obsnum}.sh
 echo "  ${RJS} ${base}/jobs/hrimage_${obsnum}.sh queue=${queue} name=hrimage_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job1}"
@@ -205,7 +205,7 @@ echo "Submitted hrimage job as ${job2}"
 
 # RFISeeker is single-threaded Python, so run 64 per node
 pernode=64
-rounded=$(echo ${timesteps} | awk '{print$0+(n-$0%n)%n}' n=${pernode})
+rounded=$(echo ${timeSteps} | awk '{print$0+(n-$0%n)%n}' n=${pernode})
 echo "Running:"
 cp ${base}/bin/rfiseeker.sh ${base}/jobs/rfiseeker_${obsnum}.sh
 echo "  ${RJS} ${base}/jobs/rfiseeker_${obsnum}.sh queue=${queue} name=rfiseeker_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps}+skip_result:${skip_result_copy} logdir=${base}/logs dep=${job2}"
