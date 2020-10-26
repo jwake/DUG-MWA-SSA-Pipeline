@@ -1,5 +1,5 @@
 #! /bin/bash -l
-#rj name=clear runtime=1
+#rj name=clear runtime=0.25 cpus=4 mem=1G
 
 start=`date +%s`
 

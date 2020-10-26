@@ -3,7 +3,7 @@
 
 start=`date +%s`
 
-source /p8/mcc_icrar/sw/env.sh
+source /p9/mcc_icrar/sw/env.sh
 
 set -x 
 
@@ -26,7 +26,7 @@ cd ${datadir}
 
 ## copy over the mwapy module
 #cp -r /astro/mwasci/sprabu/satellites/mwapy .
-SCRIPT_PATH=/p8/mcc_icrar/sw/bin
+SCRIPT_PATH=/p9/mcc_icrar/sw/bin
 MODEL_PATH=${base}/model
 
 # flag baselines in DATA column

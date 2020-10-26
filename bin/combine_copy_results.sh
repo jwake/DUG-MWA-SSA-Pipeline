@@ -1,8 +1,8 @@
 #!/bin/bash
-#rj name=combine_copy_results nodes=1 runtime=1
+#rj name=combine_copy_results nodes=1 runtime=0.1 cpus=8 mem=1G
 
 module add gcc/9.2.0
-source /p8/mcc_icrar/sw/env.sh
+source /p9/mcc_icrar/sw/env.sh
 
 datadir=${base}/processing/${obsnum}
 set -e

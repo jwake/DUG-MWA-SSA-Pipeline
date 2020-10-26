@@ -9,7 +9,7 @@ set -x
 mem=20
 module add gcc/9.2.0
 module add openmpi/4.0.5-mlnx-icc
-source /p8/mcc_icrar/sw/env.sh
+source /p9/mcc_icrar/sw/env.sh
 
 while getopts 's:f:' OPTION
 do
@@ -25,7 +25,7 @@ done
 
 module add gcc/9.2.0
 module add openmpi/4.0.3-mlnx
-source /p8/mcc_icrar/sw/env.sh
+source /p9/mcc_icrar/sw/env.sh
 set -e
 
 datadir=${base}/processing/${obsnum}

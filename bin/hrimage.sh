@@ -1,7 +1,8 @@
 #! /bin/bash -l
 #rj name=hrimage nodes=1 features=centos7,knl,fastio runtime=1
 
-TEMP=${TMPDIR}
+#TEMP=${TMPDIR}
+TEMP=`mktemp -d -p /p9/mcc_icrar/MWA-SSA/scratch`
 FAIL=0
 start=`date +%s`
 
@@ -9,10 +10,10 @@ set -x
 {
 
 
-mem=20
+mem=12
 module add gcc/9.2.0
 module add openmpi/4.0.5-mlnx-icc
-source /p8/mcc_icrar/sw/env.sh
+source /p9/mcc_icrar/sw/env.sh
 
 datadir=${base}/processing/${obsnum}
 set -e
@@ -35,7 +36,7 @@ do
     WSCLEAN_OPTS="-j 8 -no-clean -no-model -no-residual -name ${obsnum}-2m-${i} -size 1400 1400 -temp-dir ${TEMP}/${i}/tmp -abs-mem ${mem} -interval ${i} ${j} -channels-out ${channels} -weight natural -scale 5amin -parallel-gridding 32 -parallel-reordering 32 ${datadir}/${obsnum}.ms"
     echo "Running wsclean ${WSCLEAN_OPTS}"
     set -e
-    OMPI_PREFIX_ENV=/p8/mcc_icrar/000scratch KMP_HW_SUBSET="8c@${skip}" OMP_WAIT_POLICY=passive OMP_MAX_ACTIVE_LEVELS=3 KMP_AFFINITY=compact,granularity=core wsclean ${WSCLEAN_OPTS}
+    OMPI_PREFIX_ENV=/p9/mcc_icrar/000scratch KMP_HW_SUBSET="8c@${skip}" OMP_WAIT_POLICY=passive OMP_MAX_ACTIVE_LEVELS=3 KMP_AFFINITY=compact,granularity=core wsclean ${WSCLEAN_OPTS}
     
     mv ${obsnum}-2m-${i}*dirty.fits ${datadir}
     
@@ -60,6 +61,7 @@ echo "the job run time ${runtime}"
 
 
 }
+rm -rf ${TEMP}
 exit $FAIL
 
 

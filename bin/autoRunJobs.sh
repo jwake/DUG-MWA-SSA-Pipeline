@@ -96,12 +96,14 @@ then
     usage
 fi
 
-base=/p8/mcc_icrar/MWA-SSA/code/DUG-MWA-SSA-Pipeline
+source /p9/mcc_icrar/sw/env.sh
+
+base=/p9/mcc_icrar/MWA-SSA/code/DUG-MWA-SSA-Pipeline
 mkdir -p ${base}/logs
 mkdir -p ${base}/jobs
 echo $* >> ${base}/logs/runs.log
 queue=icrar
-dl_queue=icrar
+dl_queue=icrar_copy
 
 rm -f ${base}/bin/*.schema
 
@@ -185,41 +187,63 @@ fi
 dep="dep=$(join_by , ${jobid_asvo_tgt} ${jobid_cal})"
 
 ## run cotter ##
-echo "Running:"
-cp ${base}/bin/cotter.sh ${base}/jobs/cotter_${obsnum}.sh
-echo "  ${RJS} ${base}/jobs/cotter_${obsnum}.sh queue=${queue} name=cotter_${obsnum} ${dep} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs"
-job1=$(${RJS} ${base}/jobs/cotter_${obsnum}.sh queue=${queue} name=cotter_${obsnum} ${dep} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs 2>/dev/null)
+if [[ -e "${base}/processing/${obsnum}/.cotter_complete" ]]
+then
+    echo "Cotter already completed successfully, skipping"
+else
+    echo "Running:"
+    cp ${base}/bin/cotter.sh ${base}/jobs/cotter_${obsnum}.sh
+    echo "  ${RJS} ${base}/jobs/cotter_${obsnum}.sh queue=${queue} name=cotter_${obsnum} ${dep} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs"
+    job1=$(${RJS} ${base}/jobs/cotter_${obsnum}.sh queue=${queue} name=cotter_${obsnum} ${dep} schema=base:${base}+obsnum:${obsnum}+calibrationSolution:${calibrationPath} logdir=${base}/logs 2>/dev/null)
 
-echo "Submitted cotter job as ${job1}"
+    echo "Submitted cotter job as ${job1}"
+    dep="dep=${job1}"
+fi
 
-# wsclean has some multithreading, so run 8 processes per node
+# wsclean has some multithreading, so run at most 8 processes per node, capped by required RAM
+# allow this much ram per wsclean at minimum
+ram_per_job=25
+# no more than this many per node
 pernode=8
-rounded=$(echo $((${timeSteps}+1)) | awk '{print$0+(n-$0%n)%n}' n=${pernode})
-echo "Running:"
-cp ${base}/bin/hrimage.sh ${base}/jobs/hrimage_${obsnum}.sh
-echo "  ${RJS} ${base}/jobs/hrimage_${obsnum}.sh queue=${queue} name=hrimage_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job1}"
+# allocate at most this much ram per node
+max_ram_per_node=100
+# maximum node concurrency for this job
+max_nodes=16
 
-job2=$(${RJS} ${base}/jobs/hrimage_${obsnum}.sh queue=${queue} name=hrimage_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps} logdir=${base}/logs dep=${job1} 2>/dev/null)
+cpu_cap=$((64/$pernode))
+ram_cap=$(($max_ram_per_node/$ram_per_job))
+pernode=$(dc -e "[$cpu_cap]sM ${ram_cap}d ${cpu_cap}<Mp")
+# 'cpus' here includes hardware threads
+# we treat the phis as 64-core, so a few cores will be left over for the OS.
+cpus=$((4*64/${pernode}))
+ram=$((${max_ram_per_node}/${pernode}))
+maxtasks=$((${max_nodes}*${pernode}))
+multi_rjs=rjs_multi
+echo "Running:"
+cp ${base}/bin/hrimage_multi.sh ${base}/jobs/hrimage_${obsnum}.sh
+mkschema wsclean_ram:${ram}+wsclean_cpus:${cpus}+base:${base}+obsnum:${obsnum}+channels:${channels}+ts:1-$((${timeSteps}-1))+maxTimeStep:${timeSteps} > ${base}/jobs/hrimage_${obsnum}.schema
+echo "  ${multi_rjs} ${base}/jobs/hrimage_${obsnum}.sh queue=${queue} name=hrimage_${obsnum} schema=${base}/jobs/hrimage_${obsnum}.schema logdir=${base}/logs cpus=${cpus} mem=${ram}G maxtasks=${maxtasks} ${dep}"
+
+job2=$(${multi_rjs} ${base}/jobs/hrimage_${obsnum}.sh queue=${queue} name=hrimage_${obsnum} schema=${base}/jobs/hrimage_${obsnum}.schema logdir=${base}/logs cpus=${cpus} mem=${ram}G maxtasks=${maxtasks} ${dep} 2>/dev/null)
 
 echo "Submitted hrimage job as ${job2}"
 
-# RFISeeker is single-threaded Python, so run 64 per node
-pernode=64
-rounded=$(echo ${timeSteps} | awk '{print$0+(n-$0%n)%n}' n=${pernode})
+# RFISeeker is single-threaded Python, so run more per node
 echo "Running:"
-cp ${base}/bin/rfiseeker.sh ${base}/jobs/rfiseeker_${obsnum}.sh
-echo "  ${RJS} ${base}/jobs/rfiseeker_${obsnum}.sh queue=${queue} name=rfiseeker_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps}+skip_result:${skip_result_copy} logdir=${base}/logs dep=${job2}"
-job3=$(${RJS} ${base}/jobs/rfiseeker_${obsnum}.sh queue=${queue} name=rfiseeker_${obsnum} schema=base:${base}+obsnum:${obsnum}+channels:${channels}+pernode:${pernode}+ts:0-${rounded}[${pernode}]+maxTimeStep:${timeSteps}+skip_result:${skip_result_copy} logdir=${base}/logs dep=${job2} 2>/dev/null)
+cp ${base}/bin/rfiseeker_multi.sh ${base}/jobs/rfiseeker_${obsnum}.sh
+mkschema base:${base}+obsnum:${obsnum}+channels:${channels}+ts:0-${timeSteps} > ${base}/jobs/rfiseeker_${obsnum}.schema
+echo "  ${multi_rjs} ${base}/jobs/rfiseeker_${obsnum}.sh queue=${queue} name=rfiseeker_${obsnum} schema=${base}/jobs/rfiseeker_${obsnum}.schema logdir=${base}/logs dep=${job2}"
+job3=$(${multi_rjs} ${base}/jobs/rfiseeker_${obsnum}.sh queue=${queue} name=rfiseeker_${obsnum} schema=${base}/jobs/rfiseeker_${obsnum}.schema logdir=${base}/logs dep=${job2} 2>/dev/null)
 
 echo "Submitted RFISeeker job as ${job3}"
 
 cp ${base}/bin/combine_copy_results.sh ${base}/jobs/combine_copy_results_${obsnum}.sh
-job4=$(${RJS} ${base}/jobs/combine_copy_results_${obsnum}.sh queue=${queue} name=combine_copy_results_${obsnum} schema=base:${base}+obsnum:${obsnum}+skip_result_copy:${skip_result_copy} logdir=${base}/logs dep=${job3} 2>/dev/null)
+job4=$(${multi_rjs} ${base}/jobs/combine_copy_results_${obsnum}.sh queue=${dl_queue} name=combine_copy_results_${obsnum} schema=base:${base}+obsnum:${obsnum}+skip_result_copy:${skip_result_copy} logdir=${base}/logs dep=${job3} 2>/dev/null)
 echo "Submitted results combine + copy job as ${job4}"
 
 if [[ ${skip_cleanup} -eq 0 ]]; then
     cp ${base}/bin/clear.sh ${base}/jobs/clear_${obsnum}.sh
-    job5=$(${RJS} ${base}/jobs/clear_${obsnum}.sh queue=${queue} name=clear_${obsnum} schema=base:${base}+obsnum:${obsnum} logdir=${base}/logs dep=${job4} 2>/dev/null)
+    job5=$(${multi_rjs} ${base}/jobs/clear_${obsnum}.sh queue=${queue} name=clear_${obsnum} schema=base:${base}+obsnum:${obsnum} logdir=${base}/logs dep=${job4} 2>/dev/null)
 
     echo "Submitted clear job as ${job5}"
 fi
