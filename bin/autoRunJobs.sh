@@ -1,4 +1,6 @@
 #!/bin/bash
+# Insight is needed for mkschema
+module add Insight
 
 usage()
 {
@@ -221,7 +223,7 @@ maxtasks=$((${max_nodes}*${pernode}))
 multi_rjs=rjs_multi
 echo "Running:"
 cp ${base}/bin/hrimage_multi.sh ${base}/jobs/hrimage_${obsnum}.sh
-mkschema wsclean_ram:${ram}+wsclean_cpus:${cpus}+base:${base}+obsnum:${obsnum}+channels:${channels}+ts:1-$((${timeSteps}-1))+maxTimeStep:${timeSteps} > ${base}/jobs/hrimage_${obsnum}.schema
+mkschema wsclean_ram:${ram}+wsclean_cpus:${cpus}+base:${base}+obsnum:${obsnum}+channels:${channels}+ts:0-$((${timeSteps}+1))+maxTimeStep:${timeSteps} > ${base}/jobs/hrimage_${obsnum}.schema
 echo "  ${multi_rjs} ${base}/jobs/hrimage_${obsnum}.sh queue=${queue} name=hrimage_${obsnum} schema=${base}/jobs/hrimage_${obsnum}.schema logdir=${base}/logs cpus=${cpus} mem=${ram}G maxtasks=${maxtasks} ${dep}"
 
 job2=$(${multi_rjs} ${base}/jobs/hrimage_${obsnum}.sh queue=${queue} name=hrimage_${obsnum} schema=${base}/jobs/hrimage_${obsnum}.schema logdir=${base}/logs cpus=${cpus} mem=${ram}G maxtasks=${maxtasks} ${dep} 2>/dev/null)
